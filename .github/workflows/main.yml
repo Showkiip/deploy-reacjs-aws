@@ -3,7 +3,7 @@ name: Deploy Next.js to EC2
 on:
   push:
     branches:
-      - main  # Change to your default branch
+      - main
 
 jobs:
   build_and_deploy:
@@ -16,7 +16,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: '16'
 
       - name: Install dependencies
         run: yarn install
@@ -38,33 +38,6 @@ jobs:
           REMOTE_HOST: ${{ secrets.HOST_DNS }}
           REMOTE_USER: ${{ secrets.USERNAME }}
           TARGET: ${{ secrets.TARGET_DIR }}
-
-      - name: Execute remote SSH commands
-        uses: appleboy/ssh-action@v0.1.2
-        with:
-          host: ${{ secrets.HOST_DNS }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          script: |
-            # Navigate to target directory
-            cd ${{ secrets.TARGET_DIR }}
-
-            # Extract the deployment archive
-            tar -xzf deployment.tar.gz
-
-            # Install dependencies and build the application
-            yarn install --production
-            yarn build
-
-            # Manage application with PM2
-            pm2 stop nextjs-app || true
-            pm2 delete nextjs-app || true
-            pm2 start npm --name "nextjs-app" -- start
-            pm2 save
-
-            # Restart Nginx to apply any configuration changes
-            sudo systemctl restart nginx
 
       - name: Clean up
         run: rm deployment.tar.gz
