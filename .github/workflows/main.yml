@@ -45,7 +45,7 @@ jobs:
           host: ${{ secrets.HOST_DNS }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          port: ${{ secrets.EC2_PORT }}
+          port: 22
           script: |
             # Navigate to target directory
             cd ${{ secrets.TARGET_DIR }}
