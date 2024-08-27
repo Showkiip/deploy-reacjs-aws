@@ -34,8 +34,21 @@ jobs:
             # Remove old files from target directory
             sudo rm -rf /var/www/html/*
             
-            # Restart web server
-            sudo systemctl restart httpd
+            # Uncomment this block if using Apache (httpd)
+            # Install Apache if not already installed
+            # sudo yum install httpd -y || sudo apt-get install apache2 -y
+            # Enable Apache service to start on boot
+            # sudo systemctl enable httpd || sudo systemctl enable apache2
+            # Start or restart Apache service
+            # sudo systemctl restart httpd || sudo systemctl restart apache2
+            
+            # Uncomment this block if using Nginx
+            # Install Nginx if not already installed
+            # sudo yum install nginx -y || sudo apt-get install nginx -y
+            # Enable Nginx service to start on boot
+            # sudo systemctl enable nginx
+            # Start or restart Nginx service
+            # sudo systemctl restart nginx
 
       - name: Deploy to EC2
         uses: easingthemes/ssh-deploy@v2.1.5
