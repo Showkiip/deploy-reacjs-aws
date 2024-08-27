@@ -1,4 +1,4 @@
-name: Push-to-EC2 instance
+name: Deploy Next.js to EC2
 
 on:
   push:
@@ -7,14 +7,25 @@ on:
 
 jobs:
   deploy:
-    name: Push to EC2
+    name: Deploy to EC2
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout the code
+      - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Deploy to my EC2 instance
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'  # Use the Node.js version you need
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        run: npm run build
+
+      - name: Upload build to EC2
         uses: easingthemes/ssh-deploy@v2.1.5
         env:
           SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
@@ -23,32 +34,45 @@ jobs:
           REMOTE_USER: ${{ secrets.USERNAME }}
           TARGET: ${{ secrets.TARGET_DIR }}
 
-      - name: Executing remote ssh commands using ssh key
+      - name: Execute remote SSH commands
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST_DNS }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            # Update and install necessary packages
             sudo yum -y update
-            sudo yum install -y httpd
-            sudo systemctl start httpd
-            sudo systemctl enable httpd
-            # Add Node.js source for latest version
-            curl -sL https://rpm.nodesource.com/setup_14.x | sudo bash -
-            # Install Node.js and npm
+            sudo yum install -y nginx
+
+            # Configure Nginx
+            sudo mv /etc/nginx/nginx.conf /etc/nginx/nginx.conf.backup
+            echo 'server {
+              listen       80;
+              server_name  localhost;
+              location / {
+                proxy_pass http://localhost:3000;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+              }
+            }' | sudo tee /etc/nginx/nginx.conf
+
+            sudo systemctl start nginx
+            sudo systemctl enable nginx
+
+            # Install Node.js (skip if already installed)
+            curl -sL https://rpm.nodesource.com/setup_18.x | sudo bash -
             sudo yum install -y nodejs
-            # Navigate to the project directory
+
+            # Navigate to project directory and install dependencies
             cd ${{ secrets.TARGET_DIR }}
-            # Install project dependencies
             npm install
-            # Build the project
-            npm run build
-            # Clean up existing files in the web server directory
-            sudo rm -rf /var/www/html/*
-            # Move the build files to the web server directory
-            sudo mv build/* /var/www/html
-            # Set proper SELinux context for the web content
-            sudo chcon -R -t httpd_sys_content_t /var/www/html
-            # Restart Apache to apply changes
-            sudo systemctl restart httpd
+
+            # Start the Next.js application
+            npm run start &
+
+            # Ensure the application is running
+            sleep 10
+            curl -I http://localhost:3000
