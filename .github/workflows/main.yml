@@ -6,23 +6,24 @@ on:
       - main
 
 jobs:
-  build_and_deploy:
+  deploy:
+    name: Deploy to EC2
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '20'
 
       - name: Install dependencies
-        run: yarn install
+        run: npm install
 
-      - name: Build Next.js project
-        run: yarn build
+      - name: Build project
+        run: npm run build
 
       - name: Archive production build
         run: |
@@ -30,7 +31,7 @@ jobs:
           cp -r .next public package.json yarn.lock deployment/
           tar -czf deployment.tar.gz -C deployment .
 
-      - name: Upload production build to EC2
+      - name: Upload build to EC2
         uses: easingthemes/ssh-deploy@v2.1.5
         env:
           SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
@@ -39,5 +40,49 @@ jobs:
           REMOTE_USER: ${{ secrets.USERNAME }}
           TARGET: ${{ secrets.TARGET_DIR }}
 
-      - name: Clean up
-        run: rm deployment.tar.gz
+      - name: Execute remote SSH commands
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Update and install necessary packages
+            sudo yum -y update
+            sudo yum install -y nginx
+
+            # Configure Nginx
+            sudo mv /etc/nginx/nginx.conf /etc/nginx/nginx.conf.backup
+            echo 'server {
+              listen       80;
+              server_name  localhost;
+              location / {
+                proxy_pass http://localhost:3000;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+              }
+            }' | sudo tee /etc/nginx/nginx.conf
+
+            sudo systemctl start nginx
+            sudo systemctl enable nginx
+
+            # Navigate to project directory
+            cd ${{ secrets.TARGET_DIR }}
+
+            # Extract the deployment archive
+            tar -xzf deployment.tar.gz
+
+            # Install dependencies
+            npm install
+
+            # Start the Next.js application using PM2
+            pm2 stop nextjs-app || true
+            pm2 delete nextjs-app || true
+            pm2 start npm --name "nextjs-app" -- start
+            pm2 save
+
+            # Ensure the application is running
+            sleep 10
+            curl -I http://localhost:3000
