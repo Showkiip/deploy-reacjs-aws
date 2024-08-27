@@ -35,15 +35,15 @@ jobs:
             sudo yum install -y httpd
             sudo systemctl start httpd
             sudo systemctl enable httpd
-            cd /home
-            ls
-            cd ec2-user
-            sudo yum install nodejs npm -y
+            # Navigate to the project directory
+            cd ${{ secrets.TARGET_DIR }}
+            # Install Node.js and npm
+            sudo yum install -y nodejs npm
+            # Install project dependencies
             npm install
-            sudo npm run build
-            cd build
-            sudo mv * /var/www/html
+            # Build the project
+            npm run build
+            # Move the build files to the web server directory
+            sudo mv build/* /var/www/html
+            # Restart Apache to apply changes
             sudo systemctl restart httpd
-
-
-            
