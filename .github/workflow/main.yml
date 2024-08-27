@@ -1,0 +1,48 @@
+name: Build and Deploy to EC2
+
+# Trigger deployment only on push to the main branch
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js and npm
+        uses: actions/setup-node@v3
+       
+      - name: Install dependencies and build
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider
+        run: |
+          npm install 
+          npm run build
+
+      - name: Deploy to EC2
+        uses: easingthemes/ssh-deploy@v2.1.5
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+          SOURCE: "./build/"
+          REMOTE_HOST: ${{ secrets.HOST_DNS }}
+          REMOTE_USER: ${{ secrets.USERNAME }}
+          TARGET: ${{ secrets.TARGET_DIR }}
+
+      - name: Clean up old build on EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Remove old files from target directory
+            sudo rm -rf /var/www/html/*
+            
+            # Restart web server
+            sudo systemctl restart httpd
