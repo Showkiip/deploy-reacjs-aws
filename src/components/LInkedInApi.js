@@ -14,7 +14,10 @@ const LInkedInApi = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get('http://127.0.0.1:5001/jobs', {
+      // const response = await axios.get('http://192.168.18.20:8000/jobs', {
+      //   params: { title, location }
+      // });
+      const response = await axios.get('https://influential-laina-interviewsolutionshub-57864dd2.koyeb.app/jobs', {
         params: { title, location }
       });
       setJobs(response.data);
@@ -56,7 +59,7 @@ const LInkedInApi = () => {
       {loading && <p className="text-blue-500">Loading...</p>}
       {error && <p className="text-red-500">{error}</p>}
 
-      {jobs.length > 0 && (
+      {jobs?.length > 0 && (
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white border border-gray-200 rounded-lg shadow-md">
             <thead className="bg-gray-100 border-b">
@@ -69,7 +72,7 @@ const LInkedInApi = () => {
               </tr>
             </thead>
             <tbody>
-              {jobs.map((job, index) => (
+              {jobs?.map((job, index) => (
                 <tr key={index} className="border-b hover:bg-gray-50">
                   <td className="px-6 py-4">{job.job_title}</td>
                   <td className="px-6 py-4">{job.company_name}</td>
